@@ -100,8 +100,27 @@ def remove_user(user_id):
 client = TelegramClient(session_name, api_id, api_hash)
 
 # === START HANDLER WITH IMAGE & BUTTONS ===
+
 @client.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
+    # --- Referral Tracking ---
+    args = event.raw_text.split()
+    if len(args) > 1 and args[1].startswith("ref"):
+        try:
+            referrer_id = args[1][3:]  # remove 'ref' prefix
+            new_user_id = str(event.sender_id)
+
+            # Load and update referrals
+            referrals = load_referrals()
+            # Save only if it's a new referral (prevent overwriting)
+            if new_user_id not in referrals and new_user_id != referrer_id:
+                referrals[new_user_id] = referrer_id
+                save_referrals(referrals)
+                print(f"[Referral] Saved: {new_user_id} was referred by {referrer_id}")
+        except Exception as e:
+            print(f"[Referral] Error: {e}")
+
+    # --- Original Banner Logic ---
     banner_path = 'banner.gif'  # Your banner image/gif in working dir
     caption = (
         "🎧 Hey DJ! 🎶\n\n"
@@ -138,6 +157,7 @@ async def add_user_handler(event):
 
         expiry_date = (datetime.utcnow() + timedelta(days=days)).strftime('%Y-%m-%d')
 
+        # --- Add Premium to This User ---
         users = load_users()
         users[str(user_id)] = {
             "expiry": expiry_date,
@@ -148,6 +168,34 @@ async def add_user_handler(event):
         save_users(users)
 
         await event.reply(f"✅ User {user_id} has been granted access for {days} days (until {expiry_date}).")
+
+        # --- Referral Reward Logic ---
+        referrals = load_referrals()
+        if str(user_id) in referrals:  # This user was referred by someone
+            referrer_id = referrals[str(user_id)]
+            if str(referrer_id) in users:  # Referrer is known in users.json
+                # Give referrer +7 days from current expiry (or today if expired)
+                current_expiry = datetime.strptime(users[str(referrer_id)]["expiry"], "%Y-%m-%d")
+                now = datetime.utcnow()
+                if current_expiry < now:
+                    new_expiry = now + timedelta(days=7)
+                else:
+                    new_expiry = current_expiry + timedelta(days=7)
+
+                users[str(referrer_id)]["expiry"] = new_expiry.strftime("%Y-%m-%d")
+                save_users(users)
+
+                try:
+                    await client.send_message(
+                        int(referrer_id),
+                        f"🎉 Your friend (ID: {user_id}) bought premium!\n"
+                        f"You’ve been rewarded with **7 extra days** of premium. 🥳"
+                    )
+                except Exception as e:
+                    print(f"[Referral] Could not notify referrer {referrer_id}: {e}")
+
+                print(f"[Referral] Added 7 days premium to referrer {referrer_id}")
+
     except Exception as e:
         await event.reply(f"⚠️ Failed to add user: {e}")
 
