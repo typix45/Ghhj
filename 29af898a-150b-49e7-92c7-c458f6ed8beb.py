@@ -19,6 +19,18 @@ state = {}
 ADMIN_IDS = [616584208, 731116951, 769363217]
 PAYMENT_URL = "https://ko-fi.com/zackant"
 USERS_FILE = 'users.json'
+REFERRALS_FILE = "referrals.json"
+
+def load_referrals():
+    try:
+        with open(REFERRALS_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_referrals(data):
+    with open(REFERRALS_FILE, "w") as f:
+        json.dump(data, f, indent=4)
 
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -408,6 +420,16 @@ async def whitelist_handler(event):
     if count == 0:
         lines.append("No active whitelisted users found.")
     await event.reply("\n".join(lines), parse_mode='html')
+
+@client.on(events.NewMessage(pattern='/referral'))
+async def referral_link(event):
+    user_id = str(event.sender_id)
+    bot_username = (await client.get_me()).username
+    await event.reply(
+        f"🔗 **Your referral link:**\n"
+        f"https://t.me/{bot_username}?start=ref{user_id}\n\n"
+        "Share this link! If someone joins and buys premium, you get 7 days premium free."
+    )
 
 # === NEW COMMAND: /totalusers ===
 @client.on(events.NewMessage(pattern='/totalusers'))
