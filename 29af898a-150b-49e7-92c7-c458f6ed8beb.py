@@ -1,5 +1,5 @@
 import asyncio
-from telegram.ext import Updater, MessageHandler, Filters
+from telegram.ext import ApplicationBuilder, MessageHandler, filters
 from playwright.async_api import async_playwright
 import logging
 
@@ -12,8 +12,7 @@ async def get_first_redirect(url):
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            
-            # Intercept and capture first navigation request
+
             first_redirect_url = None
 
             def handle_request(request):
@@ -24,7 +23,7 @@ async def get_first_redirect(url):
             page.on("request", handle_request)
 
             await page.goto(url, wait_until="networkidle", timeout=60000)
-            await asyncio.sleep(2)  # Give time for any JS redirects
+            await asyncio.sleep(2)  # wait for potential JS redirects
 
             await browser.close()
 
@@ -34,24 +33,21 @@ async def get_first_redirect(url):
         logging.error(f"Error: {e}")
     return None
 
-def handle_message(update, context):
+async def handle_message(update, context):
     text = update.message.text.strip()
     if text.startswith("http"):
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(get_first_redirect(text))
+        result = await get_first_redirect(text)
         if result:
-            update.message.reply_text(result)
+            await update.message.reply_text(result)
         else:
-            update.message.reply_text("Couldn't fetch first redirect link.")
+            await update.message.reply_text("Couldn't fetch first redirect link.")
     else:
-        update.message.reply_text("Send me a valid URL.")
+        await update.message.reply_text("Send me a valid URL.")
 
-def main():
-    updater = Updater(BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    updater.start_polling()
-    updater.idle()
+async def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
