@@ -1,20 +1,13 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+import requests
 import time
 
 url = input("Enter the URL: ").strip()
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-driver.get(url)
-
 delay = 5  # seconds
 
 try:
     while True:
+        r = requests.get(url)
+        print(f"Visited {url} | Status: {r.status_code} | Size: {len(r.content)} bytes")
         time.sleep(delay)
-        driver.refresh()
-        print(f"Refreshed {url}")
 except KeyboardInterrupt:
-    driver.quit()
-    print("\nStopped by user.")
+    print("\nStopped.")
