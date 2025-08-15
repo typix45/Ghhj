@@ -2,12 +2,17 @@ import requests
 import time
 
 url = input("Enter the URL: ").strip()
-delay = 5  # seconds
+if not url.startswith("http"):
+    url = "https://" + url
+
+delay = 5  # seconds between refreshes
+count = 0
 
 try:
     while True:
         r = requests.get(url)
-        print(f"Visited {url} | Status: {r.status_code} | Size: {len(r.content)} bytes")
+        count += 1
+        print(f"Refresh #{count} | Status: {r.status_code} | {len(r.content)} bytes")
         time.sleep(delay)
 except KeyboardInterrupt:
-    print("\nStopped.")
+    print("\nStopped by user.")
